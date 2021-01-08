@@ -6,7 +6,14 @@ import java.net.http.HttpResponse;
 import java.util.LinkedList;
 import org.json.JSONArray; //https://github.com/stleary/JSON-java
 import org.json.JSONObject;
-public class Main {
+
+/**
+ * This is a program that queries the swapi.dev to get the Starships used in the Star Wars universe and the pilots of the
+ * respective ships. https://github.com/stleary/JSON-java is a JSON parsing library required to run this
+ * This was written using Java 11.
+ * Author: Gus Osimitz
+ */
+public class StarshipPilotLister {
 
     /**
      * Main method for managing the logic flow of the Ship/Pilot getter. Uses swapi.dev to query all the Star Wars
@@ -21,20 +28,16 @@ public class Main {
         JSONObject ships = querySwapi(swapiURL + shipEndPoint);
 
         LinkedList<Ship> allShipInfo = new LinkedList<>();
-        int shipCount =  ships.getInt("count");
+        int shipCount =  ships.getInt("count"); //get count of total starships according to the api
         //Iterate through the ships
         for(int currShip = 0; currShip <= shipCount; currShip++) {
             //Get the ship info
-            JSONObject currShipJSON = querySwapi(swapiURL + shipEndPoint + currShip);
-            //TODO Remove when bug solved
-            //JSONObject currShipJSON = querySwapi("https://swapi.dev/api/starships/15");
-            System.out.println(swapiURL + shipEndPoint + currShip);
-
+            JSONObject currShipJSON = querySwapi(swapiURL + shipEndPoint + currShip + "/");
+            //Due to an unsuccessful API call, likely a nonexistent ship
             if(currShipJSON.isEmpty()){
                 continue;
             }
             String shipName = currShipJSON.getString("name");
-            System.out.println("SHIP COUNT "  + shipName);
 
             //Store the pilots from that ship.
             JSONArray pilotURLArray = currShipJSON.getJSONArray("pilots");
@@ -55,6 +58,7 @@ public class Main {
         LinkedList<String> pilots = new LinkedList<>();
         for (int currPilot = 0; currPilot < pilotURLArray.length(); currPilot++) {
             JSONObject pilotJSON = querySwapi(pilotURLArray.getString(currPilot));
+            //Due to an unsuccessful API call, likely a nonexistent pilot
             if(pilotJSON.isEmpty()){
                 continue;
             }
@@ -64,13 +68,18 @@ public class Main {
     }
     /**
      * A simple method to run a GET query on swapi.dev
-     * HTTP Request code adapted from: https://www.twilio.com/blog/5-ways-to-make-http-requests-in-java
      * @param url - desired endpoint to query
      * @return - A JSONObject representing the body of the response, or an empty JSONObject if a 200 response was not recieved
      * @throws IOException
      * @throws InterruptedException
      */
     private static JSONObject querySwapi(String url) throws IOException, InterruptedException {
+        //API requires https, but some urls may just be http, add the 's' if it is missing.
+        if(url.charAt(4) != 's') {
+            StringBuilder tempUrl = new StringBuilder(url);
+            tempUrl.insert(4, 's');
+            url = tempUrl.toString();
+        }
         //Create client
         HttpClient client = HttpClient.newHttpClient();
 
@@ -82,7 +91,7 @@ public class Main {
 
         //Send request
         HttpResponse response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        System.out.println(response.statusCode() + " " + response);
+        //protect against any unsuccessful API calls
         if(response.statusCode() != 200) {
             return new JSONObject();
         }
@@ -96,10 +105,12 @@ public class Main {
     private static void printInformation(LinkedList<Ship> shipInfo) {
         for (Ship ship : shipInfo) {
             System.out.println(ship.name + ": ");
+            if(ship.pilots.size() == 0) {
+                System.out.println("No pilots");
+            }
             for (String pilot : ship.pilots) {
                 System.out.println(pilot);
             }
-            System.out.println();
             System.out.println();
         }
     }
@@ -115,5 +126,4 @@ class Ship {
         name = _name;
         pilots = _pilots;
     }
-
 }
